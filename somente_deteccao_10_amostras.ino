@@ -913,10 +913,10 @@ float auxVoltageMagnitude = 0;
 bool adcFlag = 0;
 int buffIndex = 0;
 
-// 
+float const tolerance = 0.05;
 float const voltageMagnitudeFixed = 1.5; // For 127 V
-float voltageSagLimit = voltageMagnitudeFixed * 0.9;
-float voltageSwellLimit = voltageMagnitudeFixed * 1.1;
+float voltageSagLimit = (voltageMagnitudeFixed * 0.9) + tolerance;
+float voltageSwellLimit = (voltageMagnitudeFixed * 1.1) - tolerance;
 
 // SAG - Afundamento
 // SWELL - Elevação
@@ -942,8 +942,6 @@ unsigned long tempoInicioSwell = 0;
 float voltageSwell = 0;
 int countSwell = 0;
 int bufferSwellIndex = 0;
-
-float tolerance = 0.1;
 
 void setup(void)
 {
@@ -986,13 +984,13 @@ void sample() {
 }
 
 void detectSagSwell() {
-  if ((voltageMagnitude < voltageSagLimit && (voltageMagnitude - tolerance) < voltageSagLimit) && !isSagInProgress) {
+  if (voltageMagnitude < voltageSagLimit && !isSagInProgress) {
     tempoInicioSag = millis();
     isSagInProgress = 1;
     return;
   }
 
-  if ((voltageMagnitude < voltageSagLimit && (voltageMagnitude - tolerance) < voltageSagLimit) && isSagInProgress) {
+  if (voltageMagnitude < voltageSagLimit && isSagInProgress) {
     voltageSag = voltageMagnitude < auxVoltageMagnitude ? voltageMagnitude : auxVoltageMagnitude;
     return;
   }
@@ -1008,7 +1006,7 @@ void detectSagSwell() {
       bufferSagIndex = 0;
     }
     
-    for (int i = 0; i <= bufferSagIndex; i++) {
+    for (int i = 0; i < bufferSagIndex; i++) {
       Serial.print("Sag[");
       Serial.print(SagDetected[i].count);
       Serial.print("]: ");
@@ -1025,13 +1023,13 @@ void detectSagSwell() {
     return;
   }
 
-  if ((voltageMagnitude > voltageSwellLimit && (voltageMagnitude + tolerance) > voltageSwellLimit) && !isSwellInProgress) {
+  if (voltageMagnitude > voltageSwellLimit && !isSwellInProgress) {
     tempoInicioSwell = millis();
     isSwellInProgress = 1;
     return;
   }
 
-  if ((voltageMagnitude > voltageSwellLimit && (voltageMagnitude + tolerance) > voltageSwellLimit) && isSwellInProgress) {
+  if (voltageMagnitude > voltageSwellLimit && isSwellInProgress) {
     voltageSwell = voltageMagnitude > auxVoltageMagnitude ? voltageMagnitude : auxVoltageMagnitude;
     return;
   }
