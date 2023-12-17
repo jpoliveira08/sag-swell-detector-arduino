@@ -1022,11 +1022,41 @@ void detectSagSwell() {
   }
 
   if (voltageMagnitude > voltageSwellLimit && !isSwellInProgress) {
+    tempoInicioSwell = millis();
     isSwellInProgress = 1;
     return;
   }
 
   if (voltageMagnitude > voltageSwellLimit && isSwellInProgress) {
+    voltageSwell = voltageMagnitude > auxVoltageMagnitude ? voltageMagnitude : auxVoltageMagnitude;
+    return;
+  }
+
+  if (tempoInicioSwell && tempoInicioSwell) {
+    countSwell++;
+    SwellDetected[bufferSwellIndex].duration = millis() - tempoInicioSwell;
+    SwellDetected[bufferSwellIndex].count = countSwell;
+    SwellDetected[bufferSwellIndex].voltage = voltageSwell;
+
+    bufferSwellIndex++;
+    if (bufferSwellIndex == maxMemoryItems){
+      bufferSwellIndex = 0;
+    }
+    
+    for (int i = 0; i < bufferSwellIndex; i++) {
+      Serial.print("Swell[");
+      Serial.print(SwellDetected[i].count);
+      Serial.print("]: ");
+      Serial.print(SwellDetected[i].voltage, 2);
+      Serial.print(" V, ");
+      Serial.print(SwellDetected[i].duration);
+      Serial.print(" ms; \n");
+    }
+
+    Serial.println();
+    voltageSwell = 0;
+    tempoInicioSwell = 0;
+    isSwellInProgress = 0;
     return;
   }
 }
