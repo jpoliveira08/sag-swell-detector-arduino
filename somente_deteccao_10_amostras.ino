@@ -913,6 +913,7 @@ float auxVoltageMagnitude = 0;
 bool adcFlag = 0;
 int buffIndex = 0;
 
+// 
 float const voltageMagnitudeFixed = 1.5; // For 127 V
 float voltageSagLimit = voltageMagnitudeFixed * 0.9;
 float voltageSwellLimit = voltageMagnitudeFixed * 1.1;
@@ -941,6 +942,8 @@ unsigned long tempoInicioSwell = 0;
 float voltageSwell = 0;
 int countSwell = 0;
 int bufferSwellIndex = 0;
+
+float tolerance = 0.1;
 
 void setup(void)
 {
@@ -983,13 +986,13 @@ void sample() {
 }
 
 void detectSagSwell() {
-  if (voltageMagnitude < voltageSagLimit && !isSagInProgress) {
+  if ((voltageMagnitude < voltageSagLimit && (voltageMagnitude - tolerance) < voltageSagLimit) && !isSagInProgress) {
     tempoInicioSag = millis();
     isSagInProgress = 1;
     return;
   }
 
-  if (voltageMagnitude < voltageSagLimit && isSagInProgress) {
+  if ((voltageMagnitude < voltageSagLimit && (voltageMagnitude - tolerance) < voltageSagLimit) && isSagInProgress) {
     voltageSag = voltageMagnitude < auxVoltageMagnitude ? voltageMagnitude : auxVoltageMagnitude;
     return;
   }
@@ -1005,15 +1008,16 @@ void detectSagSwell() {
       bufferSagIndex = 0;
     }
     
-    for (int i = 0; i < bufferSagIndex; i++) {
+    for (int i = 0; i <= bufferSagIndex; i++) {
       Serial.print("Sag[");
       Serial.print(SagDetected[i].count);
       Serial.print("]: ");
       Serial.print(SagDetected[i].voltage, 2);
       Serial.print(" V, ");
       Serial.print(SagDetected[i].duration);
-      Serial.print(" ms; \n");
+      Serial.print(" ms\n");
     }
+
     Serial.println();
     voltageSag = 0;
     tempoInicioSag = 0;
@@ -1021,18 +1025,18 @@ void detectSagSwell() {
     return;
   }
 
-  if (voltageMagnitude > voltageSwellLimit && !isSwellInProgress) {
+  if ((voltageMagnitude > voltageSwellLimit && (voltageMagnitude + tolerance) > voltageSwellLimit) && !isSwellInProgress) {
     tempoInicioSwell = millis();
     isSwellInProgress = 1;
     return;
   }
 
-  if (voltageMagnitude > voltageSwellLimit && isSwellInProgress) {
+  if ((voltageMagnitude > voltageSwellLimit && (voltageMagnitude + tolerance) > voltageSwellLimit) && isSwellInProgress) {
     voltageSwell = voltageMagnitude > auxVoltageMagnitude ? voltageMagnitude : auxVoltageMagnitude;
     return;
   }
 
-  if (tempoInicioSwell && tempoInicioSwell) {
+  if (tempoInicioSwell) {
     countSwell++;
     SwellDetected[bufferSwellIndex].duration = millis() - tempoInicioSwell;
     SwellDetected[bufferSwellIndex].count = countSwell;
@@ -1050,7 +1054,7 @@ void detectSagSwell() {
       Serial.print(SwellDetected[i].voltage, 2);
       Serial.print(" V, ");
       Serial.print(SwellDetected[i].duration);
-      Serial.print(" ms; \n");
+      Serial.print(" ms\n");
     }
 
     Serial.println();
