@@ -870,13 +870,35 @@ void TimerOne::isrDefaultUnused()
 int analogPin = A1;
 
 const float iN  = 0.1;
-int const N = 12;
+int const N = 10;
 
-float mseno[N]        = { 0, -0.500000000000000, -0.866025403784439, -1, -0.866025403784439, -0.500000000000000, 0, 0.500000000000000, 0.866025403784439, 1, 0.866025403784439, 0.5};
-float coseno[N]       = {1, 0.866025403784439, 0.500000000000000, 0, -0.500000000000000, -0.866025403784439, -1, -0.866025403784439, -0.500000000000000, 0, 0.500000000000000, 0.866025403784439};
+float mseno[N] = {
+    0,
+    -0.587785252292473,
+    -0.951056516295154,
+    -0.951056516295154,
+    -0.587785252292473,
+    0,
+    0.587785252292473,
+    0.951056516295154,
+    0.951056516295154,
+    0.587785252292473
+};
+float coseno[N] = {
+    1,
+    0.809016994374947,
+    0.309016994374947,
+    -0.309016994374947,
+    -0.809016994374947,
+    -1,
+    -0.809016994374947,
+    -0.309016994374947,
+    0.309016994374947,
+    0.809016994374947
+};
 
-float bufferFcoseno[N] = {0,0,0,0,0,0,0,0,0,0,0,0};
-float bufferFseno[N] = {0,0,0,0,0,0,0,0,0,0,0,0};
+float bufferFcoseno[N] = {0,0,0,0,0,0,0,0,0,0};
+float bufferFseno[N] = {0,0,0,0,0,0,0,0,0,0};
 
 float sumSeno = 0;
 float sumCoseno = 0;
@@ -892,7 +914,7 @@ bool adcFlag = 0;
 int buffIndex = 0;
 
 float const tolerance = 0.05;
-float const voltageMagnitudeFixed = 1.75; // Quando for 12 amostras por ciclo deve rodar um Serial.print(voltageMagnitude)
+float const voltageMagnitudeFixed = 1.5; // For 127 V
 float voltageSagLimit = (voltageMagnitudeFixed * 0.9) + tolerance;
 float voltageSwellLimit = (voltageMagnitudeFixed * 1.1) - tolerance;
 
@@ -921,9 +943,11 @@ float voltageSwell = 0;
 int countSwell = 0;
 int bufferSwellIndex = 0;
 
+bool teste = 0;
+
 void setup(void)
 {
-  Timer1.initialize(1389) ; // 12 samples - 1388.89us = 720hz
+  Timer1.initialize(1667) ; //----10 amostras 1666.67us = 600hz-- 
   Timer1.attachInterrupt(sample);
 
   Serial.begin(500000);
@@ -942,7 +966,7 @@ void loop(void)
     
     auxVoltageMagnitude = voltageMagnitude;
     voltageMagnitude = sqrt((sumCoseno*sumCoseno) + (sumSeno*sumSeno));
-
+  
     buffIndex = buffIndex + 1;
     if (buffIndex == N){
       buffIndex = 0;
@@ -951,6 +975,48 @@ void loop(void)
     adcFlag = 0;
 
     detectSagSwell();
+  }
+
+  if (teste) {
+    if (voltageMagnitude < voltageSagLimit && !isSagInProgress) {
+      tempoInicioSag = millis();
+      isSagInProgress = 1;
+      return;
+    }
+
+    if (voltageMagnitude < voltageSagLimit && isSagInProgress) {
+      voltageSag = voltageMagnitude < auxVoltageMagnitude ? voltageMagnitude : auxVoltageMagnitude;
+      return;
+    }
+
+    if (tempoInicioSag) {
+      countSag++;
+      SagDetected[bufferSagIndex].duration = millis() - tempoInicioSag;
+      SagDetected[bufferSagIndex].count = countSag;
+      SagDetected[bufferSagIndex].voltage = voltageSag;
+
+      bufferSagIndex++;
+      if (bufferSagIndex == maxMemoryItems){
+        bufferSagIndex = 0;
+      }
+      
+      for (int i = 0; i < 4; i++) {
+        Serial.print("Sag[");
+        Serial.print(SagDetected[i].count);
+        Serial.print("]: ");
+        Serial.print(SagDetected[i].voltage, 2);
+        Serial.print(" V, ");
+        Serial.print(SagDetected[i].duration);
+        Serial.print(" ms\n");
+      }
+
+      Serial.println();
+      voltageSag = 0;
+      tempoInicioSag = 0;
+      isSagInProgress = 0;
+      teste = 0;
+      return;
+    }
   }
 }
 
@@ -962,43 +1028,8 @@ void sample() {
 }
 
 void detectSagSwell() {
-  if (voltageMagnitude < voltageSagLimit && !isSagInProgress) {
-    tempoInicioSag = millis();
-    isSagInProgress = 1;
-    return;
-  }
-
-  if (voltageMagnitude < voltageSagLimit && isSagInProgress) {
-    voltageSag = voltageMagnitude < auxVoltageMagnitude ? voltageMagnitude : auxVoltageMagnitude;
-    return;
-  }
-
-  if (tempoInicioSag) {
-    countSag++;
-    SagDetected[bufferSagIndex].duration = millis() - tempoInicioSag;
-    SagDetected[bufferSagIndex].count = countSag;
-    SagDetected[bufferSagIndex].voltage = voltageSag;
-
-    bufferSagIndex++;
-    if (bufferSagIndex == maxMemoryItems){
-      bufferSagIndex = 0;
-    }
-    
-    for (int i = 0; i < bufferSagIndex; i++) {
-      Serial.print("Sag[");
-      Serial.print(SagDetected[i].count);
-      Serial.print("]: ");
-      Serial.print(SagDetected[i].voltage, 2);
-      Serial.print(" V, ");
-      Serial.print(SagDetected[i].duration);
-      Serial.print(" ms\n");
-    }
-
-    Serial.println();
-    voltageSag = 0;
-    tempoInicioSag = 0;
-    isSagInProgress = 0;
-    return;
+  if (voltageMagnitude < voltageSagLimit) {
+    teste = 1;
   }
 
   if (voltageMagnitude > voltageSwellLimit && !isSwellInProgress) {
